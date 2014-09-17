@@ -31,8 +31,14 @@ struct Qpgen {
   U_t U;
   L_t L;
 
-  // Variables
-  Vector<T> *x, *y, *lambda, *bt, *gt, *lt, *ut;
+  // Variables.
+  Vector<T> x, y, lambda, q, u, l, bt, gt, lt, ut;
+
+  // Options.
+  bool use_bt;
+  bool use_gt;
+  bool use_lt;
+  bool use_ut;
 };
 
 // Init copies cpu arrays to gpu arrays and initializes variables.
