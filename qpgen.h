@@ -18,44 +18,57 @@
 #ifndef QPGEN_H_
 #define QPGEN_H_
 
-namespace qpgen {
+#include "mattypes.h"
 
-template <typename M_t, typename D_t, typename Di_t, typename C_t,
-          typename U_t, typename L_t, typename T>
-struct Qpgen {
-  // Constant matrices.
-  M_t M;
-  D_t D;
-  Di_t Dinv;
-  C_t C;
-  U_t U;
-  L_t L;
+template <typename T, typename C_t, typename L_t,  typename U_t>
+class Qpgen {
+  // Constants.
+  const Dense<T> F_, L1_, L2_, M_, Q1_, Q2_, R_, U1_, U2_;
+  const Diagonal<T> D_, Dinv_;
+  const C_t C_;
+  const L_t L_;
+  const U_t U_;
+  const Vector<T> t1_, t2_;
 
   // Variables.
-  Vector<T> x, y, lambda, q, u, l, bt, gt, lt, ut;
+  Vector<T> x_, y_, lambda_, q_, u_, l_, bt_, gt_, lt_, ut_, yy_;
 
-  // Options.
-  bool use_bt;
-  bool use_gt;
-  bool use_lt;
-  bool use_ut;
+  // Handles.
+  void *cuda_linalg_hdl_;
+
+  // Init copies cpu arrays to gpu arrays and initializes variables.
+ public:
+  Qpgen(const C_t& C,  const Diagonal<T>& D, const Diagonal<T>& Dinv,
+        const Dense<T> F, const L_t& L, const Dense<T>& L1,
+        const Dense<T>& L2, const Dense<T>& M, const Dense<T>& Q1,
+        const Dense<T>& Q2, const Dense<T>& R, const U_t& U,
+        const Dense<T>& U1, const Dense<T>& U2, const Vector<T>& t1,
+        const Vector<T>& t2);
+
+  void Free();
+
+  void Solve(const Vector<T>& bt, const Vector<T>& gt, const Vector<T>& lt,
+             const Vector<T>& ut, unsigned int max_it, Vector<T> *x);
 };
 
-// Init copies cpu arrays to gpu arrays and initializes variables.
-template <typename M_t, typename D_t, typename Di_t, typename C_t,
-          typename U_t, typename L_t, typename T>
-Init(Qpgen<M_t, D_t, Di_t, C_t, U_t, L_t, T> q, M_t M, D_t D, Di_t Dinv, C_t C,
-     U_t U, L_t L);
+// Supported types (T, C_t, L_t, U_t)
+enum Qpgen_t { DDiDiDi, DSpSpSp, DDeDeDe,
+               DDeSpSp, DSpDeSp, DSpSpDe, DDeDeSp, DDeSpDe, DSpDeDe,
+               DDeDiDi, DDiDiDe, DDiDeDi, DDeDeDi, DDeDiDe, DDiDeDe,
+               DSpDiDi, DDiDiSp, DDiSpDi, DSpSpDi, DSpDiSp, DDiSpSp,
+               DDeDiSp, DDeSpDi, DSpDeDi, DSpDiDe, DDiDeSp, DDiSpDe,
+               SDiDiDi, SSpSpSp, SDeDeDe,
+               SDeSpSp, SSpDeSp, SSpSpDe, SDeDeSp, SDeSpDe, SSpDeDe,
+               SDeDiDi, SDiDiDe, SDiDeDi, SDeDeDi, SDeDiDe, SDiDeDe,
+               SSpDiDi, SdiDiSp, SDiSpDi, SSpSpDi, SSpDiSp, SDiSpSp,
+               SDeDiSp, SDeSpDi, SSpDeDi, SSpDiDe, SDiDeSp, SDiSpDe };
 
-template <typename M_t, typename D_t, typename Di_t, typename C_t,
-          typename U_t, typename L_t, typename T>
-Free(Qpgen<M_t, D_t, Di_t, C_t, U_t, L_t, T> q, T *bt, T *gt, T *lt, T *ut);
-
-template <typename M_t, typename D_t, typename Di_t, typename C_t,
-          typename U_t, typename L_t, typename T>
-Solve(Qpgen<M_t, D_t, Di_t, C_t, U_t, L_t, T> q, T *bt, T *gt, T *lt, T *ut);
-
-}  // namespace qpgen
+template <typename T>
+struct QpgenData {
+  Qpgen_t qpgen_t;
+  void *qpgen;
+  Vector<T> x;
+};
 
 #endif  // QPGEN_H_
 

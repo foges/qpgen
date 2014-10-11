@@ -18,34 +18,40 @@
 #ifndef MATTYPES_H_
 #define MATTYPES_H_
 
-enum MAT_ORDER = { ROW, COL };
+enum MAT_ORDER { ROW, COL };
 typedef int MAT_INT;
 
 template <typename T>
-struct Dense {
-  T *val;
-  MAT_INT m, n, lda;
-  MAT_ORDER ord;
-};
-
-template <typename T>
-struct Sparse {
-  T *val;
-  MAT_INT *ptr, *ind;
-  MAT_INT m, n, nnz;
-  MAT_ORDER ord;
-};
-
-template <typename T>
-struct Diagonal {
+struct Matrix {
   T *val;
   MAT_INT m, n;
+
+  Matrix() : m(0), n(0) { }
+  Matrix(MAT_INT m, MAT_INT n) : m(m), n(n) { }
+  bool IsEmpty() const { return m == 0 || n == 0; }
 };
+
+template <typename T>
+struct Dense : public Matrix<T> {
+  MAT_INT lda;
+  MAT_ORDER ord;
+};
+
+template <typename T>
+struct Sparse : public Matrix<T> {
+  MAT_INT *ptr, *ind;
+  MAT_INT nnz;
+  MAT_ORDER ord;
+};
+
+template <typename T>
+struct Diagonal : public Matrix <T> { };
 
 template <typename T>
 struct Vector {
   T *val;
   MAT_INT n, stride;
+  bool IsEmpty() const { return n == 0; }
 };
 
 #endif  // MATTYPES_H_

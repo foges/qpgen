@@ -22,12 +22,12 @@
 #include <cusparse.h>
 
 // Blas Level 1
-cublasStatus_t axpy(cublasHandle_t handle, int n, float *alpha,
+cublasStatus_t axpy(cublasHandle_t handle, int n, const float *alpha,
                     const float *x, int incx, float *y, int incy) {
   return cublasSaxpy(handle, n, alpha, x, incx, y, incy);
 }
 
-cublasStatus_t axpy(cublasHandle_t handle, int n, double *alpha,
+cublasStatus_t axpy(cublasHandle_t handle, int n, const double *alpha,
                     const double *x, int incx, double *y, int incy) {
   return cublasDaxpy(handle, n, alpha, x, incx, y, incy);
 }
@@ -56,8 +56,8 @@ cusparseStatus_t spmv(cusparseHandle_t handle, cusparseOperation_t transA,
                       cusparseMatDescr_t descrA, const float *val,
                       const int *row_ptr, const int *col_ind, const float *x,
                       const float *beta, float *y) {
-  return cusparseScsrmv(handle, transA, m, n, nnz, alpha, descrA, val, ptr,
-      ind, x, beta, y);
+  return cusparseScsrmv(handle, transA, m, n, nnz, alpha, descrA, val, row_ptr,
+      col_ind, x, beta, y);
 }
 
 cusparseStatus_t spmv(cusparseHandle_t handle, cusparseOperation_t transA,
@@ -65,8 +65,8 @@ cusparseStatus_t spmv(cusparseHandle_t handle, cusparseOperation_t transA,
                       cusparseMatDescr_t descrA, const double *val,
                       const int *row_ptr, const int *col_ind, const double *x,
                       const double *beta, double *y) {
-  return cusparseDcsrmv(handle, transA, m, n, nnz, alpha, descrA, val, ptr,
-      ind, x, beta, y);
+  return cusparseDcsrmv(handle, transA, m, n, nnz, alpha, descrA, val, row_ptr,
+      col_ind, x, beta, y);
 }
 
 #endif  // CULINALG_H_
