@@ -63,5 +63,5 @@ qpgen_instance = qpgen(prob);
 prob_instance.bt = [1 1];
 prob_instance.bt = [2 2];
 
-x = qpgen.run(prob_instance)
+x = qpgen_instance.run(prob_instance)
 
