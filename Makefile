@@ -1,12 +1,7 @@
-CXX=g++
-CXXFLAGS=-Wall
-LDFLAGS=-L/usr/local/cuda/lib -lcublas -lcusparse -lcudart
 
 NVCC=nvcc
 NVFLAGS=-arch=sm_20
-
-all: main.cpp qpgen.o qpgen_ln.o
-	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o main
+LDFLAGS=-L/usr/local/cuda/lib -lcublas -lcusparse -lcudart
 
 qpgen_ln.o: qpgen.o
 	$(NVCC) $(NVFLAGS) $< -dlink -o $@
