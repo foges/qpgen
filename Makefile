@@ -1,6 +1,6 @@
 
 NVCC=nvcc
-NVFLAGS=-arch=sm_20
+NVFLAGS=-arch=sm_20 -Xcompiler -Wall,-fPIC 
 LDFLAGS=-L/usr/local/cuda/lib -lcublas -lcusparse -lcudart
 
 qpgen_ln.o: qpgen.o

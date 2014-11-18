@@ -73,13 +73,13 @@ int gemv(CudaLinalgHandle hdl, CudaMatOp op, const T *alpha, const M A,
 template <typename T>
 int gemv(CudaLinalgHandle hdl, CudaMatOp op, const T *alpha,
          const Sparse<T>& A, const Vector<T>& x, const T *beta,
-         Vector<T> y) {
+         Vector<T> *y) {
   // Input check.
   if (op == NO_TRANS) {
-    assert(y.n == A.m);
+    assert(y->n == A.m);
     assert(x.n == A.n);
   } else {
-    assert(y.n == A.n);
+    assert(y->n == A.n);
     assert(x.n == A.m);
   }
 
@@ -87,35 +87,35 @@ int gemv(CudaLinalgHandle hdl, CudaMatOp op, const T *alpha,
   cusparseStatus_t err;
   if (A.ord == ROW) {
     err = spmv(hdl.sparse, OpToCusparse(op), A.m, A.n, A.nnz, alpha, hdl.descr,
-        A.val, A.ptr, A.ind, x.val, beta, y.val);
+        A.val, A.ptr, A.ind, x.val, beta, y->val);
   } else {
     err = spmv(hdl.sparse, OpToInvCusparse(op), A.n, A.m, A.nnz, alpha,
-        hdl.descr, A.val, A.ptr, A.ind, x.val, beta, y.val);
+        hdl.descr, A.val, A.ptr, A.ind, x.val, beta, y->val);
   }
   return err != CUSPARSE_STATUS_SUCCESS;
 }
 
 template <typename T>
 int gemv(CudaLinalgHandle hdl, CudaMatOp op, const T *alpha,
-         const Dense<T> A, const Vector<T> x, const T *beta,
-         Vector<T> y) {
+         const Dense<T>& A, const Vector<T>& x, const T *beta,
+         Vector<T> *y) {
   // Input check.
   if (op == NO_TRANS) {
-    assert(y.n == A.m);
+    assert(y->n == A.m);
     assert(x.n == A.n);
   } else {
-    assert(y.n == A.n);
+    assert(y->n == A.n);
     assert(x.n == A.m);
   }
 
   // Multiply.
   cublasStatus_t err;
-  if (A.ord == ROW) {
+  if (A.ord == COL) {
     err = gemv(hdl.dense, OpToCublas(op), A.m, A.n, alpha, A.val, A.lda, x.val,
-        x.stride, beta, y.val, y.stride);
+        x.stride, beta, y->val, y->stride);
   } else {
     err = gemv(hdl.dense, OpToInvCublas(op), A.n, A.m, alpha, A.val, A.lda,
-        x.val, x.stride, beta, y.val, y.stride);
+        x.val, x.stride, beta, y->val, y->stride);
   }
   return err != CUBLAS_STATUS_SUCCESS;
 }
@@ -123,39 +123,40 @@ int gemv(CudaLinalgHandle hdl, CudaMatOp op, const T *alpha,
 
 template <typename T>
 int gemv(CudaLinalgHandle hdl, CudaMatOp op, const T *alpha,
-         const Diagonal<T> A, const Vector<T> x, const T *beta,
-         Vector<T> y) {
+         const Diagonal<T>& A, const Vector<T>& x, const T *beta,
+         Vector<T> *y) {
   // Input check.
   if (op == NO_TRANS) {
-    assert(y.n == A.m);
+    assert(y->n == A.m);
     assert(x.n == A.n);
   } else {
-    assert(y.n == A.n);
+    assert(y->n == A.n);
     assert(x.n == A.m);
   }
 
   // Multiply.
   thrust::transform(thrust::device_pointer_cast(A.val),
       thrust::device_pointer_cast(A.val + std::min(A.m, A.n)),
-      thrust::device_pointer_cast(x.val), thrust::device_pointer_cast(y.val),
+      thrust::device_pointer_cast(x.val), thrust::device_pointer_cast(y->val),
       thrust::multiplies<T>());
   if (A.m > A.n && op == NO_TRANS)
-    cudaMemset(y.val + A.n, 0, (A.m - A.n) * sizeof(T));
+    cudaMemset(y->val + A.n, 0, (A.m - A.n) * sizeof(T));
   else if (A.m < A.n && op == TRANS)
-    cudaMemset(y.val + A.m, 0, (A.n - A.m) * sizeof(T));
+    cudaMemset(y->val + A.m, 0, (A.n - A.m) * sizeof(T));
   return 0;
 }
 
 
 // Vector addition.
 template <typename T>
-int axpy(CudaLinalgHandle hdl, const T *alpha, const Vector<T> x, Vector<T> y) {
+int axpy(CudaLinalgHandle hdl, const T *alpha, const Vector<T>& x,
+         Vector<T> *y) {
   // Input check.
-  assert(x.n == y.n);
+  assert(x.n == y->n);
 
   // Add.
-  cublasStatus_t err = axpy(hdl.dense, x.n, alpha, x.val, x.stride, y.val,
-      y.stride);
+  cublasStatus_t err = axpy(hdl.dense, x.n, alpha, x.val, x.stride, y->val,
+      y->stride);
   return err != CUBLAS_STATUS_SUCCESS;
 }
 
@@ -167,12 +168,13 @@ Dense<T> AllocMat(const Dense<T>& mat, enum cudaMemcpyKind kind) {
   mat_d.n = mat.n;
   mat_d.lda = mat.lda;
   mat_d.ord = mat.ord;
+  mat_d.val = 0;
 
   MAT_INT dim;
   if (mat.ord == ROW)
-    dim = mat.lda * mat.n;
-  else
     dim = mat.lda * mat.m;
+  else
+    dim = mat.lda * mat.n;
 
   if (!mat_d.IsEmpty()) {
     cudaMalloc(&mat_d.val, dim * sizeof(T));
@@ -188,6 +190,7 @@ Sparse<T> AllocMat(const Sparse<T> mat, enum cudaMemcpyKind kind) {
   mat_d.n = mat.n;
   mat_d.nnz = mat.nnz;
   mat_d.ord = mat.ord;
+  mat_d.val = 0;
 
   MAT_INT ptr_dim;
   if (mat.ord == ROW)
@@ -207,10 +210,11 @@ Sparse<T> AllocMat(const Sparse<T> mat, enum cudaMemcpyKind kind) {
 }
 
 template <typename T>
-Diagonal<T> AllocMat(const Diagonal<T> mat, enum cudaMemcpyKind kind) {
+Diagonal<T> AllocMat(const Diagonal<T>& mat, enum cudaMemcpyKind kind) {
   Diagonal<T> mat_d;
   mat_d.m = mat.m;
   mat_d.n = mat.n;
+  mat_d.val = 0;
 
   if (!mat_d.IsEmpty()) {
     cudaMalloc(&mat_d.val, std::min(mat.n, mat.m) * sizeof(T));
@@ -221,25 +225,25 @@ Diagonal<T> AllocMat(const Diagonal<T> mat, enum cudaMemcpyKind kind) {
 
 // Matrix free.
 template <typename T>
-void FreeMat(Dense<T> mat) {
+void FreeMat(const Dense<T>& mat) {
   cudaFree(mat.val);
 }
 
 template <typename T>
-void FreeMat(Sparse<T> mat) {
+void FreeMat(const Sparse<T>& mat) {
   cudaFree(mat.val);
   cudaFree(mat.ind);
   cudaFree(mat.ptr);
 }
 
 template <typename T>
-void FreeMat(Diagonal<T> mat) {
+void FreeMat(const Diagonal<T>& mat) {
   cudaFree(mat.val);
 }
 
 // Vector alloc.
 template <typename T>
-Vector<T> AllocVec(const Vector<T> vec, enum cudaMemcpyKind kind) {
+Vector<T> AllocVec(const Vector<T>& vec, enum cudaMemcpyKind kind) {
   Vector<T> vec_d;
   vec_d.n = vec.n;
   vec_d.stride = vec.stride;
@@ -263,7 +267,7 @@ Vector<T> AllocVec(int n) {
 }
 
 template <typename T>
-void FreeVec(const Vector<T>& vec) {
+void FreeVec(Vector<T>& vec) {
   cudaFree(vec.val);
 }
 

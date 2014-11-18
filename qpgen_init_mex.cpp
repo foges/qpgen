@@ -1,5 +1,6 @@
 #include <matrix.h>
 #include <mex.h>
+#include <string.h>
 
 #include <algorithm>
 #include <limits>
@@ -23,8 +24,8 @@ Dense<T> InitDense(mxArray *arr) {
   Dense<T> mat;
   mat.ord = COL;
   mat.val = reinterpret_cast<T*>(mxGetData(arr));
-  mat.m = mxGetM(arr);
-  mat.n = mat.lda = mxGetN(arr);
+  mat.m = mat.lda = mxGetM(arr);
+  mat.n = mxGetN(arr);
   return mat;
 }
 
@@ -63,6 +64,24 @@ Diagonal<T> InitDiagonal(mxArray *arr) {
   mat.m = mat.n = std::max(mxGetN(arr), mxGetM(arr));
   return mat;
 }
+
+template <typename T>
+Vector<T> InitVector(mxArray *arr) {
+  Vector<T> vec;
+  vec.val = reinterpret_cast<T*>(mxGetData(arr));
+  vec.n = std::max(mxGetN(arr), mxGetM(arr));
+  vec.stride = 1;
+  return vec;
+}
+
+// template <typename T>
+// void print(const Dense<T> &A) {
+//   for (int j = 0; j < A.m; ++j) {
+//     for (int i = 0; i < A.n; ++i)
+//       mexPrintf("%e ", A.val[i * A.m + j]);
+//     mexPrintf("\n");
+//   }
+// }
 
 // Problem is struct with variables:
 // - (dense) F, M, Q1, Q2, R
@@ -123,73 +142,49 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   
   // Populate matrices of known type.
   mxArray *arr;
-  arr = mxGetFieldByNumber(params, 0, M_idx);
-  M.val = reinterpret_cast<real_t*>(mxGetData(arr));
-  M.m = mxGetM(arr);
-  M.lda = M.n = mxGetN(arr);
-  arr = mxGetFieldByNumber(params, 0, Q1_idx);
-  Q1.val = reinterpret_cast<real_t*>(mxGetData(arr));
-  Q1.m = mxGetM(arr);
-  Q1.lda = Q1.n = mxGetN(arr);
-  arr = mxGetFieldByNumber(params, 0, Q2_idx);
-  Q2.val = reinterpret_cast<real_t*>(mxGetData(arr));
-  Q2.m = mxGetM(arr);
-  Q2.lda = Q2.n = mxGetN(arr);
-  arr = mxGetFieldByNumber(params, 0, D_idx);
-  D.val = reinterpret_cast<real_t*>(mxGetData(arr));
-  D.m = D.n = std::max(mxGetM(arr), mxGetN(arr));
-  arr = mxGetFieldByNumber(params, 0, Dinv_idx);
-  Dinv.val = reinterpret_cast<real_t*>(mxGetData(arr));
-  Dinv.m = Dinv.n = std::max(mxGetM(arr), mxGetN(arr));
 
+  arr = mxGetFieldByNumber(params, 0, M_idx);
+  M = InitDense<real_t>(arr);
+  arr = mxGetFieldByNumber(params, 0, Q1_idx);
+  Q1 = InitDense<real_t>(arr);
+  arr = mxGetFieldByNumber(params, 0, Q2_idx);
+  Q2 = InitDense<real_t>(arr);
+  arr = mxGetFieldByNumber(params, 0, D_idx);
+  D = InitDiagonal<real_t>(arr);
+  arr = mxGetFieldByNumber(params, 0, Dinv_idx);
+  Dinv = InitDiagonal<real_t>(arr);
 
   if (L1_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, L1_idx);
-    L1.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    L1.m = mxGetM(arr);
-    L1.lda = L1.n = mxGetN(arr);
+    L1 = InitDense<real_t>(arr);
   }
   if (L2_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, L2_idx);
-    L2.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    L2.m = mxGetM(arr);
-    L2.lda = L2.n = mxGetN(arr);
+    L2 = InitDense<real_t>(arr);
   }
   if (U1_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, U1_idx);
-    U1.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    U1.m = mxGetM(arr);
-    U1.lda = U1.n = mxGetN(arr);
+    U1 = InitDense<real_t>(arr);
   }
   if (L2_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, U2_idx);
-    U2.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    U2.m = mxGetM(arr);
-    U2.lda = U2.n = mxGetN(arr);
+    U2 = InitDense<real_t>(arr);
   }
   if (F_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, F_idx);
-    F.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    F.m = mxGetM(arr);
-    F.lda = F.n = mxGetN(arr);
+    F = InitDense<real_t>(arr);
   }
   if (R_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, R_idx);
-    R.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    R.m = mxGetM(arr);
-    R.lda = R.n = mxGetN(arr);
+    R = InitDense<real_t>(arr);
   }
   if (t1_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, t1_idx);
-    t1.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    t1.n = std::max(mxGetM(arr), mxGetN(arr));
-    t1.stride = 1;
+    t1 = InitVector<real_t>(arr);
   }
   if (t2_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, t2_idx);
-    t2.val = reinterpret_cast<real_t*>(mxGetData(arr));
-    t2.n = std::max(mxGetM(arr), mxGetN(arr));
-    t2.stride = 1;
+    t2 = InitVector<real_t>(arr);
   }
 
   // Declare matrices of unknown types
@@ -563,6 +558,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       new QpgenData<real_t>{qpgen_t, qpgen, x});
   mwSize size_void = sizeof(void*);
   plhs[0] = mxCreateCharArray(1, &size_void);
-  memcpy(mxGetData(plhs[0]), qpgen_data, size_void);
+  memcpy(mxGetData(plhs[0]), &qpgen_data, size_void);
 }
 

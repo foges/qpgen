@@ -22,6 +22,61 @@
 #include "linalg.h"
 #include "qpgen.h"
 
+// ///// Delete
+// extern "C" int mexPrintf(const char* fmt, ...);
+// 
+// template <typename T>
+// T nrm(const Vector<T> &x) {
+//   T *x_ = new T[x.n];
+//   cudaMemcpy(x_, x.val, x.n * sizeof(T), cudaMemcpyDeviceToHost);
+//   T sum = 0;
+//   for (int i = 0; i < x.n; ++i)
+//     sum += x_[i] * x_[i];
+//   delete [] x_;
+//   return sqrt(sum);
+// }
+// 
+// template <typename T>
+// T nrm(const Dense<T> &A) {
+//   T *A_ = new T[A.n * A.m];
+//   cudaMemcpy(A_, A.val, A.n * A.m * sizeof(T), cudaMemcpyDeviceToHost);
+//   T sum = 0;
+//   for (int i = 0; i < A.n * A.m; ++i)
+//     sum += A_[i] * A_[i];
+//   delete [] A_;
+//   return sqrt(sum);
+// }
+// 
+// template <typename T>
+// void print_d(const Vector<T> &x) {
+//   T *x_ = new T[x.n];
+//   cudaMemcpy(x_, x.val, x.n * sizeof(T), cudaMemcpyDeviceToHost);
+//   for (int i = 0; i < x.n; ++i)
+//     mexPrintf("%e ", x_[i]);
+//   mexPrintf("\n");
+//   delete [] x_;
+// }
+// template <typename T>
+// void print_d(const Dense<T> &A) {
+//   T *A_ = new T[A.n * A.m];
+//   cudaMemcpy(A_, A.val, A.n * A.m * sizeof(T), cudaMemcpyDeviceToHost);
+//   for (int j = 0; j < A.m; ++j) {
+//     for (int i = 0; i < A.n; ++i)
+//       mexPrintf("%e ", A_[i * A.m + j]);
+//     mexPrintf("\n");
+//   }
+//   delete [] A_;
+// }
+// template <typename T>
+// void print_h(const Dense<T> &A) {
+//   for (int j = 0; j < A.m; ++j) {
+//     for (int i = 0; i < A.n; ++i)
+//       mexPrintf("%e ", A.val[i * A.m + j]);
+//     mexPrintf("\n");
+//   }
+// }
+// ///// end Delete
+
 // Init copies cpu arrays to gpu arrays and initializes variables.
 template <typename T, typename C_t, typename L_t, typename U_t>
 Qpgen<T, C_t, L_t, U_t>::Qpgen(const C_t& C, const Diagonal<T>& D,
@@ -51,8 +106,8 @@ Qpgen<T, C_t, L_t, U_t>::Qpgen(const C_t& C, const Diagonal<T>& D,
   // Dimension check.
   int n_x = C_.n;
   int n_y = D_.n;
-  int n_bt = Q1_.m;
-  int n_gt = Q2_.m;
+  int n_bt = Q2_.n;
+  int n_gt = Q1_.n;
   int n_lt = C_.n;
   int n_ut = C_.n;
 
@@ -125,87 +180,87 @@ void Qpgen<T, C_t, L_t, U_t>::Solve(const Vector<T>& bt, const Vector<T>& gt,
   const T kZero = static_cast<T>(0);
 
   // Copy data to device.
-  if (!bt_.IsEmpty())
+  if (!bt.IsEmpty())
     cudaMemcpy(bt_.val, bt.val, bt.n * sizeof(T), cudaMemcpyHostToDevice);
-  if (!gt_.IsEmpty())
+  if (!gt.IsEmpty())
     cudaMemcpy(gt_.val, gt.val, gt.n * sizeof(T), cudaMemcpyHostToDevice);
-  if (!lt_.IsEmpty())
+  if (!lt.IsEmpty())
     cudaMemcpy(lt_.val, lt.val, lt.n * sizeof(T), cudaMemcpyHostToDevice);
-  if (!ut_.IsEmpty())
+  if (!ut.IsEmpty())
     cudaMemcpy(ut_.val, ut.val, ut.n * sizeof(T), cudaMemcpyHostToDevice);
 
   // q = Q1*gt + Q2*bt
-  if (!gt_.IsEmpty()) {
-    gemv(hdl, NO_TRANS, &kOne, Q1_, gt_, &kZero, q_);
+  if (!gt.IsEmpty()) {
+    gemv(hdl, NO_TRANS, &kOne, Q1_, gt_, &kZero, &q_);
   } else {
     cudaMemcpy(q_.val, Q1_.val, Q1_.m * sizeof(T), cudaMemcpyDeviceToDevice);
   }
-  if (!bt_.IsEmpty()) {
-    gemv(hdl, NO_TRANS, &kOne, Q2_, bt_, &kOne, q_);
+  if (!bt.IsEmpty()) {
+    gemv(hdl, NO_TRANS, &kOne, Q2_, bt_, &kOne, &q_);
   } else {
     const Vector<T> v = { Q2_.val, Q2_.m, 1 };
-    axpy(hdl, &kOne, v, q_);
+    axpy(hdl, &kOne, v, &q_);
   }
- 
+
   // l = L*lt - L1*gt - L2*bt;
-  if (!lt_.IsEmpty()) {
-    gemv(hdl, NO_TRANS, &kOne, L_, lt_, &kZero, l_);
+  if (!lt.IsEmpty()) {
+    gemv(hdl, NO_TRANS, &kOne, L_, lt_, &kZero, &l_);
   } else {
     cudaMemcpy(l_.val, L_.val, L_.m * sizeof(T), cudaMemcpyDeviceToDevice);
   }
   if (!L1_.IsEmpty()) {
-    if (!gt_.IsEmpty()) {
-      gemv(hdl, NO_TRANS, &kNegOne, L1_, gt_, &kOne, l_);
+    if (!gt.IsEmpty()) {
+      gemv(hdl, NO_TRANS, &kNegOne, L1_, gt_, &kOne, &l_);
     } else {
       const Vector<T> v = { L1_.val, L1_.m, 1 };
-      axpy(hdl, &kNegOne, v, l_);
+      axpy(hdl, &kNegOne, v, &l_);
     }
   }
   if (!L2_.IsEmpty()) {
-    if (!bt_.IsEmpty()) {
-      gemv(hdl, NO_TRANS, &kNegOne, L2_, bt_, &kOne, l_);
+    if (!bt.IsEmpty()) {
+      gemv(hdl, NO_TRANS, &kNegOne, L2_, bt_, &kOne, &l_);
     } else {
       const Vector<T> v = { L2_.val, L2_.m, 1 };
-      axpy(hdl, &kNegOne, v, l_);
+      axpy(hdl, &kNegOne, v, &l_);
     }
   }
 
   // u = U*ut - U1*gt - U2*bt;
   if (!ut.IsEmpty()) {
-    gemv(hdl, NO_TRANS, &kOne, U_, ut_, &kZero, u_);
+    gemv(hdl, NO_TRANS, &kOne, U_, ut_, &kZero, &u_);
   } else {
     cudaMemcpy(u_.val, U_.val, U_.m * sizeof(T), cudaMemcpyDeviceToDevice);
   }
   if (!U1_.IsEmpty()) {
-    if (!gt_.IsEmpty()) {
-      gemv(hdl, NO_TRANS, &kNegOne, U1_, gt_, &kOne, u_);
+    if (!gt.IsEmpty()) {
+      gemv(hdl, NO_TRANS, &kNegOne, U1_, gt_, &kOne, &u_);
     } else {
       const Vector<T> v = { U1_.val, U1_.m, 1 };
-      axpy(hdl, &kNegOne, v, u_);
+      axpy(hdl, &kNegOne, v, &u_);
     }
   }
   if (!U2_.IsEmpty()) {
-    if (!bt_.IsEmpty()) {
-      gemv(hdl, NO_TRANS, &kNegOne, U2_, bt_, &kOne, u_);
+    if (!bt.IsEmpty()) {
+      gemv(hdl, NO_TRANS, &kNegOne, U2_, bt_, &kOne, &u_);
     } else {
       const Vector<T> v = { U2_.val, U2_.m, 1 };
-      axpy(hdl, &kNegOne, v, u_);
+      axpy(hdl, &kNegOne, v, &u_);
     }
   }
   
   // yy = 0, lambda = 0
-  cudaMemset(yy_.val, 0, yy_.n);
-  cudaMemset(lambda_.val, 0, lambda_.n);
+  cudaMemset(yy_.val, 0, yy_.n * sizeof(T));
+  cudaMemset(lambda_.val, 0, lambda_.n * sizeof(T));
 
   for (unsigned int i = 0; i < max_it; ++i) {
     // x = -M*(D*y - lambda) + q;
-    axpy(hdl, &kNegOne, lambda_, yy_);
+    axpy(hdl, &kNegOne, lambda_, &yy_);
     cudaMemcpy(x_.val, q_.val, x_.n * sizeof(T), cudaMemcpyDeviceToDevice);
-    gemv(hdl, NO_TRANS, &kNegOne, M_, yy_, &kOne, x_);
+    gemv(hdl, NO_TRANS, &kNegOne, M_, yy_, &kOne, &x_);
 
     // y = min(max(l, Dinv*(C*x + lambda)), u);
-    gemv(hdl, NO_TRANS, &kOne, C_, x_, &kOne, lambda_);
-    gemv(hdl, NO_TRANS, &kOne, Dinv_, lambda_, &kZero, y_);
+    gemv(hdl, NO_TRANS, &kOne, C_, x_, &kOne, &lambda_);
+    gemv(hdl, NO_TRANS, &kOne, Dinv_, lambda_, &kZero, &y_);
     thrust::transform(thrust::device_pointer_cast(y_.val),
         thrust::device_pointer_cast(y_.val + y_.n),
         thrust::device_pointer_cast(u_.val),
@@ -218,23 +273,23 @@ void Qpgen<T, C_t, L_t, U_t>::Solve(const Vector<T>& bt, const Vector<T>& gt,
         thrust::maximum<T>());
 
     // lambda = lambda + C*x - D*y;
-    gemv(hdl, NO_TRANS, &kOne, D_, y_, &kZero, yy_);
-    axpy(hdl, &kNegOne, yy_, lambda_);
+    gemv(hdl, NO_TRANS, &kOne, D_, y_, &kZero, &yy_);
+    axpy(hdl, &kNegOne, yy_, &lambda_);
   }
 
   if (!R_.IsEmpty()) {
     cudaMemcpy(q_.val, x_.val, x_.n * sizeof(T), cudaMemcpyDeviceToDevice);
-    gemv(hdl, NO_TRANS, &kOne, R_, q_, &kZero, q_);
+    gemv(hdl, NO_TRANS, &kOne, R_, q_, &kZero, &q_);
   }
   if (!t1_.IsEmpty()) {
-    axpy(hdl, &kOne, t1_, x_);
+    axpy(hdl, &kOne, t1_, &x_);
   }
   if (!t2_.IsEmpty()) {
-    axpy(hdl, &kOne, t2_, x_);
+    axpy(hdl, &kOne, t2_, &x_);
   }
   if (!F_.IsEmpty()) {
     cudaMemcpy(q_.val, x_.val, x_.n * sizeof(T), cudaMemcpyDeviceToDevice);
-    gemv(hdl, NO_TRANS, &kOne, F_, q_, &kZero, x_);
+    gemv(hdl, NO_TRANS, &kOne, F_, q_, &kZero, &x_);
   }
 
   // Copy solution to host.

@@ -49,7 +49,6 @@ cublasStatus_t gemv(cublasHandle_t handle, cublasOperation_t trans, int m,
       incy);
 }
 
-
 // Sparse Blas Level 2
 cusparseStatus_t spmv(cusparseHandle_t handle, cusparseOperation_t transA,
                       int m, int n, int nnz, const float *alpha,

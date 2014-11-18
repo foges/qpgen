@@ -1,5 +1,6 @@
 #include <matrix.h>
 #include <mex.h>
+#include <string.h>
 
 #include <algorithm>
 #include <limits>
@@ -45,6 +46,8 @@ inline T GetVal(const void *pr, size_t idx, mxClassID id) {
     case mxUNKNOWN_CLASS:
     case mxVOID_CLASS:
     default:
+      mexErrMsgIdAndTxt("MATLAB:qpgen:invalidClass",
+          "input data type invalid");
       return std::numeric_limits<T>::quiet_NaN();
   }
 }
@@ -77,7 +80,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     return;
   }
 
-  QpgenData<real_t> qpgen_data;
+  QpgenData<real_t> *qpgen_data;
   memcpy(&qpgen_data, mxGetData(prhs[0]), sizeof(void*));
 
   const mxArray *params = prhs[1];
@@ -86,9 +89,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   int lt_idx = mxGetFieldNumber(params, "lt");
   int ut_idx = mxGetFieldNumber(params, "ut");
 
-  int max_it = GetVal<real_t>(prhs[2], 0, mxGetClassID(prhs[2]));
+  int max_it = GetVal<int>(mxGetData(prhs[2]), 0, mxGetClassID(prhs[2]));
 
-  Vector<real_t> bt, gt, lt, ut;
+  Vector<real_t> bt{0, 0, 1}, gt{0, 0, 1}, lt{0, 0, 1}, ut{0, 0, 1};
   mxArray *arr;
   if (bt_idx >= 0) {
     arr = mxGetFieldByNumber(params, 0, bt_idx);
@@ -115,142 +118,142 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     ut.stride = 1;
   }
 
-  Vector<real_t> x = qpgen_data.x;
-  Qpgen_t qpgen_t = qpgen_data.qpgen_t;
+  Vector<real_t> x = qpgen_data->x;
+  Qpgen_t qpgen_t = qpgen_data->qpgen_t;
   switch (qpgen_t) {
     case DDiDiDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Diagonal<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpSpSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-           Sparse<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+           Sparse<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeDeDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Dense<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeSpSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Sparse<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpDeSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Dense<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpSpDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Sparse<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeDeSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Dense<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeSpDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Sparse<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpDeDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Dense<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeDiDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Diagonal<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiDiDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Diagonal<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiDeDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Dense<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeDeDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Dense<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeDiDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Diagonal<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiDeDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Dense<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpDiDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Diagonal<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiDiSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Diagonal<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiSpDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Sparse<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpSpDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Sparse<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpDiSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Diagonal<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiSpSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Sparse<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeDiSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Diagonal<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDeSpDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Dense<real_t>,
-          Sparse<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpDeDi: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Dense<real_t>, Diagonal<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Diagonal<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DSpDiDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Sparse<real_t>,
-          Diagonal<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Diagonal<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiDeSp: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Dense<real_t>, Sparse<real_t> >*>(qpgen_data.qpgen), 
+          Dense<real_t>, Sparse<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case DDiSpDe: {
       Solve(reinterpret_cast<Qpgen<real_t, Diagonal<real_t>,
-          Sparse<real_t>, Dense<real_t> >*>(qpgen_data.qpgen), 
+          Sparse<real_t>, Dense<real_t> >*>(qpgen_data->qpgen), 
           bt, gt, lt, ut, max_it, &x);
       break;
     } case SDiDiDi:
