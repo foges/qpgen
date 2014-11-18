@@ -9,7 +9,6 @@ classdef qpgen < handle
     end
     % Destructor
     function delete(this)
-      % TODO : implement this
       qpgen_clear(this.cpp_handle);
     end
     % Example method
