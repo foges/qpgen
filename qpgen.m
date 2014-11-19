@@ -11,7 +11,7 @@ classdef qpgen < handle
     function delete(this)
       qpgen_clear(this.cpp_handle);
     end
-    % Example method
+    % Solve QP
     function output = run(this, data, max_iter)
       output = qpgen_run(this.cpp_handle, data, max_iter);
     end
